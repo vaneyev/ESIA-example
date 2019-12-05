@@ -13,6 +13,7 @@ import java.net.URLEncoder;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.Security;
+import java.security.Signature;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -49,6 +50,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class Application {
 	private String cerPath = "D:\\data\\projects\\root.pem";
 	private String keyPath = "D:\\data\\projects\\priv.pem";
+	private String esiaCerPath = "D:\\data\\projects\\RSA_TESIA.cer";
 	private String authurl = "https://esia-portal1.test.gosuslugi.ru/aas/oauth2/ac?";
 	private String tokenurl = "https://esia-portal1.test.gosuslugi.ru/aas/oauth2/te";
 	private String resturl = "https://esia-portal1.test.gosuslugi.ru/rs/prns/";
@@ -141,6 +143,8 @@ public class Application {
 			sb.append(esiaPerson.middleName);
 			sb.append(" ");
 			sb.append(esiaPerson.lastName);
+			sb.append("<br> Verify: ");
+			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]));
 
 			return sb.toString();
 
@@ -180,6 +184,23 @@ public class Application {
 			ex.printStackTrace();
 		}
 		return "";
+	}
+
+	private boolean verify(String data, String sign) {
+		try {
+			CertificateFactory fact = CertificateFactory.getInstance("X.509");
+			FileInputStream fis = new FileInputStream(esiaCerPath);
+			X509Certificate cer = (X509Certificate) fact.generateCertificate(fis);
+			fis.close();
+			Signature sig = Signature.getInstance("SHA256withRSA");
+			sig.initVerify(cer);
+			sig.update(data.getBytes());
+			return sig.verify(Base64.getUrlDecoder().decode(sign));
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return false;
+
 	}
 
 	private String signOpenSSL(String input) {
