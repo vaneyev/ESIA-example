@@ -165,8 +165,7 @@ public class Application {
 	private String signBouncyCastle(String input) {
 		try {
 			String strPK = new String(Files.readAllBytes(Paths.get(keyPath)), "UTF-8")
-					.replace("-----BEGIN PRIVATE KEY-----", "")
-					.replace("-----END PRIVATE KEY-----", "")
+					.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
 					.replace("\n", "");
 			PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(strPK));
 			PrivateKey pk = KeyFactory.getInstance("RSA").generatePrivate(spec);
