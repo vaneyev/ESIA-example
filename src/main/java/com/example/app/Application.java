@@ -117,32 +117,32 @@ public class Application {
 			con.getOutputStream().write(postData);
 
 			ObjectMapper mapper = new ObjectMapper();
-			AuthResponse authResponse;
+			GenericJSON authResponse;
 			try (InputStream is = con.getInputStream();) {
-				authResponse = mapper.readValue(is, AuthResponse.class);
+				authResponse = mapper.readValue(is, GenericJSON.class);
 			}
 
-			String[] tokenArray = authResponse.access_token.split("[.]");
-			Payload payload = mapper.readValue(Base64.getUrlDecoder().decode(tokenArray[1]), Payload.class);
+			String[] tokenArray = authResponse.getProperties().get("access_token").toString().split("[.]");
+			GenericJSON payload = mapper.readValue(Base64.getUrlDecoder().decode(tokenArray[1]), GenericJSON.class);
 
-			objURL = new URL(resturl + payload.urn_esia_sbj_id);
+			objURL = new URL(resturl + payload.getProperties().get("urn:esia:sbj_id"));
 			con = (HttpURLConnection) objURL.openConnection();
 			con.setRequestMethod("GET");
-			con.setRequestProperty("Authorization", "Bearer " + authResponse.access_token);
+			con.setRequestProperty("Authorization", "Bearer " + authResponse.getProperties().get("access_token"));
 			con.setUseCaches(false);
-			EsiaPerson esiaPerson;
+			GenericJSON esiaPerson;
 			try (InputStream is = con.getInputStream();) {
-				esiaPerson = mapper.readValue(is, EsiaPerson.class);
+				esiaPerson = mapper.readValue(is, GenericJSON.class);
 			}
 
 			StringBuilder sb = new StringBuilder();
-			sb.append(payload.urn_esia_sbj_id);
+			sb.append(payload.getProperties().get("urn:esia:sbj_id"));
 			sb.append("<br>");
-			sb.append(esiaPerson.firstName);
+			sb.append(esiaPerson.getProperties().get("firstName"));
 			sb.append(" ");
-			sb.append(esiaPerson.middleName);
+			sb.append(esiaPerson.getProperties().get("middleName"));
 			sb.append(" ");
-			sb.append(esiaPerson.lastName);
+			sb.append(esiaPerson.getProperties().get("lastName"));
 			sb.append("<br> Verify: ");
 			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]));
 
