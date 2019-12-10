@@ -221,8 +221,6 @@ public class Application {
 			Process proc = Runtime.getRuntime().exec(sb.toString());
 			proc.waitFor();
 			byte[] s = Files.readAllBytes(outFile.toPath());
-			inFile.delete();
-			outFile.delete();
 			return Base64.getUrlEncoder().encodeToString(s);
 		} catch (Exception ex) {
 			ex.printStackTrace();
