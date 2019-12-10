@@ -225,8 +225,10 @@ public class Application {
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		} finally {
-			if (inFile!= null && inFile.exists()) inFile.delete();
-			if (outFile!= null && outFile.exists()) outFile.delete();
+			if (inFile != null && inFile.exists())
+				inFile.delete();
+			if (outFile != null && outFile.exists())
+				outFile.delete();
 		}
 
 		return "";
