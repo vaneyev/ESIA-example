@@ -200,12 +200,14 @@ public class Application {
 	}
 
 	private String signOpenSSL(String input) {
+		File inFile = null;
+		File outFile = null;
 		try {
-			File inFile = File.createTempFile("text", ".msg");
+			inFile = File.createTempFile("text", ".msg");
 			try (FileWriter fw = new FileWriter(inFile)) {
 				fw.write(input);
 			}
-			File outFile = File.createTempFile("sign", ".msg");
+			outFile = File.createTempFile("sign", ".msg");
 			StringBuilder sb = new StringBuilder();
 			sb.append("openssl smime -sign -md sha256 -in ");
 			sb.append(inFile.getAbsolutePath());
@@ -219,12 +221,16 @@ public class Application {
 			Process proc = Runtime.getRuntime().exec(sb.toString());
 			proc.waitFor();
 			byte[] s = Files.readAllBytes(outFile.toPath());
-			inFile.deleteOnExit();
-			outFile.deleteOnExit();
+			inFile.delete();
+			outFile.delete();
 			return Base64.getUrlEncoder().encodeToString(s);
 		} catch (Exception ex) {
 			ex.printStackTrace();
+		} finally {
+			if (inFile!= null && inFile.exists()) inFile.delete();
+			if (outFile!= null && outFile.exists()) outFile.delete();
 		}
+
 		return "";
 	}
 
