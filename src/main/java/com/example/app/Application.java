@@ -2,7 +2,6 @@ package com.example.app;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
@@ -10,6 +9,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.Security;
@@ -204,9 +204,7 @@ public class Application {
 		File outFile = null;
 		try {
 			inFile = File.createTempFile("text", ".msg");
-			try (FileWriter fw = new FileWriter(inFile)) {
-				fw.write(input);
-			}
+			Files.write(inFile.toPath(), input.getBytes(), StandardOpenOption.APPEND);
 			outFile = File.createTempFile("sign", ".msg");
 			StringBuilder sb = new StringBuilder();
 			sb.append("openssl smime -sign -md sha256 -in ");
@@ -220,8 +218,7 @@ public class Application {
 			sb.append(" -outform DER");
 			Process proc = Runtime.getRuntime().exec(sb.toString());
 			proc.waitFor();
-			byte[] s = Files.readAllBytes(outFile.toPath());
-			return Base64.getUrlEncoder().encodeToString(s);
+			return Base64.getUrlEncoder().encodeToString(Files.readAllBytes(outFile.toPath()));
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		} finally {
