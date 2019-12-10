@@ -170,9 +170,10 @@ public class Application {
 			PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(strPK));
 			PrivateKey pk = KeyFactory.getInstance("RSA").generatePrivate(spec);
 			CertificateFactory fact = CertificateFactory.getInstance("X.509");
-			FileInputStream fis = new FileInputStream(cerPath);
-			X509Certificate cer = (X509Certificate) fact.generateCertificate(fis);
-			fis.close();
+			X509Certificate cer;
+			try (FileInputStream fis = new FileInputStream(cerPath)) {
+				cer = (X509Certificate) fact.generateCertificate(fis);
+			}
 			return Base64.getUrlEncoder().encodeToString(signData(input.getBytes("UTF-8"), cer, pk));
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -183,9 +184,10 @@ public class Application {
 	private boolean verify(String data, String sign) {
 		try {
 			CertificateFactory fact = CertificateFactory.getInstance("X.509");
-			FileInputStream fis = new FileInputStream(esiaCerPath);
-			X509Certificate cer = (X509Certificate) fact.generateCertificate(fis);
-			fis.close();
+			X509Certificate cer;
+			try (FileInputStream fis = new FileInputStream(esiaCerPath)) {
+				cer = (X509Certificate) fact.generateCertificate(fis);
+			}
 			Signature sig = Signature.getInstance("SHA256withRSA");
 			sig.initVerify(cer);
 			sig.update(data.getBytes());
@@ -200,9 +202,9 @@ public class Application {
 	private String signOpenSSL(String input) {
 		try {
 			File inFile = File.createTempFile("text", ".msg");
-			FileWriter fw = new FileWriter(inFile);
-			fw.write(input);
-			fw.close();
+			try (FileWriter fw = new FileWriter(inFile)) {
+				fw.write(input);
+			}
 			File outFile = File.createTempFile("sign", ".msg");
 			StringBuilder sb = new StringBuilder();
 			sb.append("openssl smime -sign -md sha256 -in ");
@@ -216,10 +218,7 @@ public class Application {
 			sb.append(" -outform DER");
 			Process proc = Runtime.getRuntime().exec(sb.toString());
 			proc.waitFor();
-			FileInputStream fis = new FileInputStream(outFile);
-			byte[] s = new byte[fis.available()];
-			fis.read(s, 0, s.length);
-			fis.close();
+			byte[] s = Files.readAllBytes(outFile.toPath());
 			inFile.deleteOnExit();
 			outFile.deleteOnExit();
 			return Base64.getUrlEncoder().encodeToString(s);
