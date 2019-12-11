@@ -136,26 +136,26 @@ public class Application {
 			}
 
 			StringBuilder sb = new StringBuilder();
-			sb.append("<h1>Информация о пользователе</h1><br> Идентификатор: ");
+			sb.append("<h1>Информация о пользователе</h1><h2>Идентификатор</h2> ");
 			sb.append(payload.getProperties().get("urn:esia:sbj_id"));
-			sb.append("<br> ФИО: ");
+			sb.append("<h2>ФИО</h2> ");
+			sb.append(esiaPerson.getProperties().get("lastName"));
+			sb.append(" ");
 			sb.append(esiaPerson.getProperties().get("firstName"));
 			sb.append(" ");
 			sb.append(esiaPerson.getProperties().get("middleName"));
-			sb.append(" ");
-			sb.append(esiaPerson.getProperties().get("lastName"));
-			sb.append("<br> Подпись ЕСИА: ");
+			sb.append("<h2>Подпись ЕСИА</h2>");
 			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]) ? "подтверждена" : "не подтверждена");
-			sb.append("<br>Авторизационный код :<br>");
+			sb.append("<h2>Авторизационный код</h2>");
 			sb.append(new String(Base64.getUrlDecoder()
 					.decode(code.split("[.]")[1])));
-			sb.append("<br>Маркер идентификации:<br>");
+			sb.append("<h2>Маркер идентификации</h2>");
 			sb.append(new String(Base64.getUrlDecoder()
 					.decode(authResponse.getProperties().get("id_token").toString().split("[.]")[1])));
-			sb.append("<br>Маркер доступа:<br>");
+			sb.append("<h2>Маркер доступа</h2>");
 			sb.append(new String(Base64.getUrlDecoder()
 					.decode(authResponse.getProperties().get("access_token").toString().split("[.]")[1])));
-			sb.append("<br>Маркер обновления:<br>");
+			sb.append("<h2>Маркер обновления</h2>");
 			sb.append(authResponse.getProperties().get("refresh_token").toString());
 
 			return sb.toString();
