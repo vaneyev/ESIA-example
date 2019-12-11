@@ -81,7 +81,7 @@ public class Application {
 			params.put("timestamp", timeStamp);
 			params.put("client_secret", sign(scope + timeStamp + clientId + state));
 
-			return "<a href=\"" + authurl + getParamsString(params) + "\">Login</a>";
+			return "<h1>ЕСИА</h1><a href=\"" + authurl + getParamsString(params) + "\">Вход</a>";
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -136,15 +136,19 @@ public class Application {
 			}
 
 			StringBuilder sb = new StringBuilder();
+			sb.append("<h1>Информация о пользователе</h1><br> Идентификатор: ");
 			sb.append(payload.getProperties().get("urn:esia:sbj_id"));
-			sb.append("<br>");
+			sb.append("<br> ФИО: ");
 			sb.append(esiaPerson.getProperties().get("firstName"));
 			sb.append(" ");
 			sb.append(esiaPerson.getProperties().get("middleName"));
 			sb.append(" ");
 			sb.append(esiaPerson.getProperties().get("lastName"));
-			sb.append("<br> Verify: ");
-			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]));
+			sb.append("<br> Подпись ЕСИА: ");
+			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]) ? "подтверждена" : "не подтверждена");
+			sb.append("<br>Идентификационный токен:<br>");
+			sb.append(new String(Base64.getUrlDecoder()
+					.decode(authResponse.getProperties().get("id_token").toString().split("[.]")[1])));
 
 			return sb.toString();
 
