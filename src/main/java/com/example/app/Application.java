@@ -146,9 +146,17 @@ public class Application {
 			sb.append(esiaPerson.getProperties().get("lastName"));
 			sb.append("<br> Подпись ЕСИА: ");
 			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]) ? "подтверждена" : "не подтверждена");
-			sb.append("<br>Идентификационный токен:<br>");
+			sb.append("<br>Авторизационный код :<br>");
+			sb.append(new String(Base64.getUrlDecoder()
+					.decode(code.split("[.]")[1])));
+			sb.append("<br>Маркер идентификации:<br>");
 			sb.append(new String(Base64.getUrlDecoder()
 					.decode(authResponse.getProperties().get("id_token").toString().split("[.]")[1])));
+			sb.append("<br>Маркер доступа:<br>");
+			sb.append(new String(Base64.getUrlDecoder()
+					.decode(authResponse.getProperties().get("access_token").toString().split("[.]")[1])));
+			sb.append("<br>Маркер обновления:<br>");
+			sb.append(authResponse.getProperties().get("refresh_token").toString());
 
 			return sb.toString();
 
