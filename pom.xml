@@ -5,6 +5,11 @@
 	<groupId>ESIA-Example</groupId>
 	<artifactId>ESIA-Example</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+
+	<properties>
+		<maven.compiler.source>11</maven.compiler.source>
+		<maven.compiler.target>11</maven.compiler.target>
+	</properties>
 	
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -38,7 +43,7 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
-			</dependency>
+		</dependency>
 	</dependencies>
 
 </project>
