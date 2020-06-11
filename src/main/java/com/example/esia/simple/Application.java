@@ -1,65 +1,70 @@
-package com.example.app;
+package com.example.esia.simple;
 
-import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.Signature;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.bouncycastle.cert.jcajce.JcaCertStore;
-import org.bouncycastle.cms.CMSProcessableByteArray;
-import org.bouncycastle.cms.CMSSignedData;
-import org.bouncycastle.cms.CMSSignedDataGenerator;
-import org.bouncycastle.cms.CMSTypedData;
-import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
-import org.bouncycastle.util.Store;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.service.SecurityService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootApplication
 @RestController
-public class Application {
-	private String cerPath = "D:\\data\\projects\\root.pem";
-	private String keyPath = "D:\\data\\projects\\priv.pem";
-	private String esiaCerPath = "D:\\data\\projects\\RSA_TESIA.cer";
-	private String authurl = "https://esia-portal1.test.gosuslugi.ru/aas/oauth2/ac?";
-	private String tokenurl = "https://esia-portal1.test.gosuslugi.ru/aas/oauth2/te";
-	private String resturl = "https://esia-portal1.test.gosuslugi.ru/rs/prns/";
-	private String clientId = "RPGUGP";
-	private String redirectUri = "http://localhost:8080/info";
-	private String scope = "openid fullname";
+public class Application extends SpringBootServletInitializer {
+	@Value("${esia.authurl}")
+	private String authurl;
+	@Value("${esia.signatureAlgorithm}")
+	private String signatureAlgorithm;
+	@Value("${esia.clientId}")
+	private String clientId;
+	@Value("${esia.esiaCerPath}")
+	private String esiaCerPath;
+	@Value("${esia.keyStorePath}")
+	private String keyStorePath;
+	@Value("${esia.redirectUri}")
+	private String redirectUri;
+	@Value("${esia.resturl}")
+	private String resturl;
+	@Value("${esia.scope}")
+	private String scope;
+	@Value("${esia.tokenurl}")
+	private String tokenurl;
+
+	private X509Certificate esiaCertificate;
+	private X509Certificate certificate;
+	private PrivateKey privateKey;
+
 	private String state = "";
 	private String timeStamp;
-	private boolean useOpenSSL = false;
+
+	static {
+		Security.addProvider(new BouncyCastleProvider());
+	}
 
 	public static void main(String[] args) {
 		SpringApplication.run(Application.class, args);
@@ -67,6 +72,7 @@ public class Application {
 
 	@RequestMapping("/")
 	public String home() {
+		loadCertificates(esiaCerPath, keyStorePath);
 		try {
 			Map<String, String> params = new LinkedHashMap<>();
 			params.put("client_id", clientId);
@@ -91,6 +97,7 @@ public class Application {
 
 	@RequestMapping("/info")
 	public String info(@RequestParam("code") String code, @RequestParam("state") String state) {
+
 		try {
 			Map<String, String> params = new LinkedHashMap<>();
 			params.put("client_id", clientId);
@@ -147,8 +154,7 @@ public class Application {
 			sb.append("<h2>Подпись ЕСИА</h2>");
 			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]) ? "подтверждена" : "не подтверждена");
 			sb.append("<h2>Авторизационный код</h2>");
-			sb.append(new String(Base64.getUrlDecoder()
-					.decode(code.split("[.]")[1])));
+			sb.append(new String(Base64.getUrlDecoder().decode(code.split("[.]")[1])));
 			sb.append("<h2>Маркер идентификации</h2>");
 			sb.append(new String(Base64.getUrlDecoder()
 					.decode(authResponse.getProperties().get("id_token").toString().split("[.]")[1])));
@@ -158,6 +164,9 @@ public class Application {
 			sb.append("<h2>Маркер обновления</h2>");
 			sb.append(authResponse.getProperties().get("refresh_token").toString());
 
+			if (!SecurityService.verifyJavaSecurity(tokenArray[0] + "." + tokenArray[1], tokenArray[2], esiaCertificate,
+					"SHA256withRSA"))
+				sb.append("<h2>Верификация не пройдена</h2>");
 			return sb.toString();
 
 		} catch (Exception ex) {
@@ -167,30 +176,29 @@ public class Application {
 		return "";
 	}
 
-	private String sign(String input) {
-		if (useOpenSSL)
-			return signOpenSSL(input);
-		else
-			return signBouncyCastle(input);
-	}
-
-	private String signBouncyCastle(String input) {
+	private void loadCertificates(String esiaCerPath, String keyStorePath) {
 		try {
-			String strPK = new String(Files.readAllBytes(Paths.get(keyPath)), "UTF-8")
-					.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
-					.replace("\n", "");
-			PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(strPK));
-			PrivateKey pk = KeyFactory.getInstance("RSA").generatePrivate(spec);
+
 			CertificateFactory fact = CertificateFactory.getInstance("X.509");
-			X509Certificate cer;
-			try (FileInputStream fis = new FileInputStream(cerPath)) {
-				cer = (X509Certificate) fact.generateCertificate(fis);
+			try (FileInputStream fis = new FileInputStream(esiaCerPath)) {
+				esiaCertificate = (X509Certificate) fact.generateCertificate(fis);
 			}
-			return Base64.getUrlEncoder().encodeToString(signData(input.getBytes("UTF-8"), cer, pk));
+
+			KeyStore keyStore = KeyStore.getInstance("PKCS12");
+			try (FileInputStream fis = new FileInputStream(keyStorePath)) {
+				keyStore.load(fis, "".toCharArray());
+				certificate = (X509Certificate) keyStore.getCertificate("esia");
+				privateKey = (PrivateKey) keyStore.getKey("esia", "".toCharArray());
+			}
+
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
-		return "";
+	}
+
+	public String sign(String input) throws IOException {
+		return Base64.getUrlEncoder().encodeToString(
+				SecurityService.signData(input.getBytes("UTF-8"), certificate, privateKey));
 	}
 
 	private boolean verify(String data, String sign) {
@@ -208,62 +216,6 @@ public class Application {
 			ex.printStackTrace();
 		}
 		return false;
-
-	}
-
-	private String signOpenSSL(String input) {
-		File inFile = null;
-		File outFile = null;
-		try {
-			inFile = File.createTempFile("text", ".msg");
-			Files.write(inFile.toPath(), input.getBytes(), StandardOpenOption.APPEND);
-			outFile = File.createTempFile("sign", ".msg");
-			StringBuilder sb = new StringBuilder();
-			sb.append("openssl smime -sign -md sha256 -in ");
-			sb.append(inFile.getAbsolutePath());
-			sb.append(" -signer ");
-			sb.append(cerPath);
-			sb.append(" -inkey ");
-			sb.append(keyPath);
-			sb.append(" -out ");
-			sb.append(outFile.getAbsolutePath());
-			sb.append(" -outform DER");
-			Process proc = Runtime.getRuntime().exec(sb.toString());
-			proc.waitFor();
-			return Base64.getUrlEncoder().encodeToString(Files.readAllBytes(outFile.toPath()));
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		} finally {
-			if (inFile != null && inFile.exists())
-				inFile.delete();
-			if (outFile != null && outFile.exists())
-				outFile.delete();
-		}
-
-		return "";
-	}
-
-	public static byte[] signData(byte[] data, final X509Certificate signingCertificate, final PrivateKey signingKey) {
-		try {
-			byte[] signedMessage = null;
-			List<X509Certificate> certList = new ArrayList<X509Certificate>();
-			CMSTypedData cmsData = new CMSProcessableByteArray(data);
-			certList.add(signingCertificate);
-			Store<?> certs = new JcaCertStore(certList);
-			CMSSignedDataGenerator cmsGenerator = new CMSSignedDataGenerator();
-			ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256withRSA").build(signingKey);
-			Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-			cmsGenerator.addSignerInfoGenerator(new JcaSignerInfoGeneratorBuilder(
-					new JcaDigestCalculatorProviderBuilder().setProvider("BC").build()).build(contentSigner,
-							signingCertificate));
-			cmsGenerator.addCertificates(certs);
-			CMSSignedData cms = cmsGenerator.generate(cmsData, true);
-			signedMessage = cms.getEncoded();
-			return signedMessage;
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return new byte[0];
 
 	}
 
