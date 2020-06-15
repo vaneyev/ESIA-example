@@ -10,7 +10,6 @@ import java.net.URLEncoder;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Security;
-import java.security.Signature;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.text.DateFormat;
@@ -152,7 +151,8 @@ public class Application extends SpringBootServletInitializer {
 			sb.append(" ");
 			sb.append(esiaPerson.getProperties().get("middleName"));
 			sb.append("<h2>Подпись ЕСИА</h2>");
-			sb.append(verify(tokenArray[0] + "." + tokenArray[1], tokenArray[2]) ? "подтверждена" : "не подтверждена");
+			sb.append(SecurityService.verifyJavaSecurity(tokenArray[0] + "." + tokenArray[1], tokenArray[2], esiaCertificate,
+					"SHA256withRSA") ? "подтверждена" : "не подтверждена");
 			sb.append("<h2>Авторизационный код</h2>");
 			sb.append(new String(Base64.getUrlDecoder().decode(code.split("[.]")[1])));
 			sb.append("<h2>Маркер идентификации</h2>");
@@ -164,9 +164,6 @@ public class Application extends SpringBootServletInitializer {
 			sb.append("<h2>Маркер обновления</h2>");
 			sb.append(authResponse.getProperties().get("refresh_token").toString());
 
-			if (!SecurityService.verifyJavaSecurity(tokenArray[0] + "." + tokenArray[1], tokenArray[2], esiaCertificate,
-					"SHA256withRSA"))
-				sb.append("<h2>Верификация не пройдена</h2>");
 			return sb.toString();
 
 		} catch (Exception ex) {
@@ -199,24 +196,6 @@ public class Application extends SpringBootServletInitializer {
 	public String sign(String input) throws IOException {
 		return Base64.getUrlEncoder().encodeToString(
 				SecurityService.signData(input.getBytes("UTF-8"), certificate, privateKey));
-	}
-
-	private boolean verify(String data, String sign) {
-		try {
-			CertificateFactory fact = CertificateFactory.getInstance("X.509");
-			X509Certificate cer;
-			try (FileInputStream fis = new FileInputStream(esiaCerPath)) {
-				cer = (X509Certificate) fact.generateCertificate(fis);
-			}
-			Signature sig = Signature.getInstance("SHA256withRSA");
-			sig.initVerify(cer);
-			sig.update(data.getBytes());
-			return sig.verify(Base64.getUrlDecoder().decode(sign));
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-		return false;
-
 	}
 
 	public static String getParamsString(Map<String, String> params) throws UnsupportedEncodingException {
